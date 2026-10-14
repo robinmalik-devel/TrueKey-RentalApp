@@ -1,0 +1,12 @@
+Django>=5.2,<5.3
+djangorestframework>=3.16,<4
+djangorestframework-simplejwt>=5.5,<6
+drf-spectacular>=0.28,<1
+django-environ>=0.12,<1
+django-cors-headers>=4.7,<5
+psycopg[binary]>=3.2,<4
+pgvector>=0.4,<1
+celery[redis]>=5.5,<6
+sentry-sdk[django,celery]>=2.20,<3
+gunicorn>=23,<24
+uvicorn[standard]>=0.34,<1
