@@ -1,0 +1,61 @@
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment:              # inside Compose, reach db/redis by service name
+    DATABASE_URL: postgis://truekey:${POSTGRES_PASSWORD}@db:5432/truekey
+    REDIS_URL: redis://redis:6379/0
+    GDAL_LIBRARY_PATH: ""
+    GEOS_LIBRARY_PATH: ""
+  volumes:
+    - ./backend:/app        # live code reload in dev
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  db:
+    build: ./docker/postgres
+    environment:
+      POSTGRES_DB: truekey
+      POSTGRES_USER: truekey
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"   # host 5432 is taken by Homebrew Postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U truekey -d truekey"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"   # host 6379 is taken by other Redis instances
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  web:
+    <<: *backend
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+
+  worker-fast:              # quick jobs: WhatsApp, SMS, small updates
+    <<: *backend
+    command: celery -A config worker -Q default,notify -c 4 -l info
+
+  worker-slow:              # ffmpeg and Claude calls
+    <<: *backend
+    command: celery -A config worker -Q media,ai -c 2 -l info
+
+  beat:
+    <<: *backend
+    command: celery -A config beat -l info
+
+volumes:
+  pgdata:
